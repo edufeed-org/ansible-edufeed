@@ -33,7 +33,9 @@ vagrant up
 ansible-playbook -i inventory-local.yml edufeed.yml
 ```
 
-## Quick Start
+## Run it
+
+**Important**: Change the email addresses for letsencrypt. LetsEncrypt won't accept `@example` domains.
 
 ### 1. Install Ansible Dependencies
 
