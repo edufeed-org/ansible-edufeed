@@ -1,0 +1,21 @@
+---
+# Strfry (Nostr relay) default variables
+strfry_image_name: "dockurr/strfry:latest"
+strfry_container_name: "relay"
+strfry_domain: "relay.example.com"
+strfry_data_dir: "/opt/strfry"
+strfry_config_file: "strfry.conf"
+strfry_db_path: "{{ strfry_data_dir }}/strfry-db"
+
+# Network
+strfry_port: 7777
+strfry_network_name: "traefik_web"
+
+# Relay settings
+strfry_relay_name: "My Nostr Relay"
+strfry_relay_description: "A personal Nostr relay"
+strfry_relay_contact: ""
+strfry_max_connections: 100
+strfry_max_event_size: 65536
+strfry_events_per_second: 0.1
+strfry_reject_future_seconds: 900

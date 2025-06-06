@@ -1,0 +1,57 @@
+---
+- name: Create Blossom data directory
+  file:
+    path: "{{ blossom_data_dir }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Create Blossom config directory
+  file:
+    path: "{{ blossom_config_dir }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Deploy Blossom config file
+  template:
+    src: config.yml.j2
+    dest: "{{ blossom_config_dir }}/{{ blossom_config_file }}"
+    mode: '0644'
+  become: yes
+  notify: restart blossom
+
+- name: Create Blossom data volume
+  docker_volume:
+    name: "{{ blossom_data_volume }}"
+    state: present
+
+- name: Set Blossom environment variables
+  set_fact:
+    blossom_env_vars:
+      BLOSSOM_CONFIG: "data/config.yml"
+
+- name: Add debug environment if enabled
+  set_fact:
+    blossom_env_vars: "{{ blossom_env_vars | combine({'DEBUG': '*'}) }}"
+  when: blossom_debug_enabled | default(false) | bool
+
+- name: Deploy Blossom container
+  docker_container:
+    name: "{{ blossom_container_name }}"
+    image: "{{ blossom_image_name }}"
+    state: started
+    restart_policy: always
+    volumes:
+      - "{{ blossom_data_volume }}:/app/data"
+      - "{{ blossom_config_dir }}/{{ blossom_config_file }}:/app/config.yml"
+    networks:
+      - name: "{{ blossom_network_name }}"
+    env: "{{ blossom_env_vars }}"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "{{ blossom_network_name }}"
+      traefik.http.services.blossom.loadbalancer.server.port: "{{ blossom_port }}"
+      traefik.http.routers.blossom.rule: "Host(`{{ blossom_domain }}`)"
+      traefik.http.routers.blossom.entrypoints: "web,websecure"
+      traefik.http.routers.blossom.tls.certresolver: "myresolver"

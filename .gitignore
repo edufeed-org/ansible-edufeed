@@ -1,0 +1,42 @@
+# Ansible
+*.retry
+ansible.log
+
+# Vault
+*.vault
+vault-password.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Sensitive files
+host_vars/**/vault.yml
+group_vars/**/vault.yml
+secrets/
+
+# Local testing
+.vagrant/
+*.box
+vagrant-ssh
+

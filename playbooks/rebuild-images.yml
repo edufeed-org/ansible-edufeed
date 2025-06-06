@@ -1,0 +1,42 @@
+---
+- name: Rebuild Docker images from source
+  hosts: docker_hosts
+  become: yes
+  
+  vars_prompt:
+    - name: rebuild_all
+      prompt: "Rebuild all images? (yes/no)"
+      default: "no"
+      private: no
+    
+    - name: rebuild_blossom
+      prompt: "Rebuild Blossom? (yes/no)"
+      default: "no"
+      private: no
+      when: rebuild_all != "yes"
+    
+    - name: rebuild_strfry
+      prompt: "Rebuild Strfry? (yes/no)"
+      default: "no"
+      private: no
+      when: rebuild_all != "yes"
+  
+  tasks:
+    - name: Set rebuild flags based on user input
+      set_fact:
+        blossom_force_rebuild: "{{ (rebuild_all == 'yes') or (rebuild_blossom == 'yes') }}"
+        strfry_force_rebuild: "{{ (rebuild_all == 'yes') or (rebuild_strfry == 'yes') }}"
+    
+    - name: Rebuild Blossom if requested
+      include_role:
+        name: blossom
+      when: blossom_force_rebuild
+      tags:
+        - blossom
+    
+    - name: Rebuild Strfry if requested
+      include_role:
+        name: strfry
+      when: strfry_force_rebuild
+      tags:
+        - strfry

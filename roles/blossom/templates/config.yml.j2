@@ -1,0 +1,164 @@
+# Blossom server configuration
+# Override the domain that is used in the blobs "url" field
+# By default it uses the domain the incoming HTTP request was made on
+publicDomain: "{{ blossom_public_domain | default('') }}"
+
+databasePath: data/sqlite.db
+
+dashboard:
+  # enable or disable the admin dashboard
+  enabled: {{ blossom_dashboard_enabled | default(true) | lower }}
+  # admin username
+  username: {{ blossom_dashboard_username | default('admin') }}
+  # if password is left blank it will be generated each time the app starts
+{% if blossom_dashboard_password is defined %}
+  password: "{{ blossom_dashboard_password }}"
+{% else %}
+  # password: ""
+{% endif %}
+
+discovery:
+  # find files by querying nostr relays
+  nostr:
+    enabled: {{ blossom_discovery_nostr_enabled | default(false) | lower }}
+    relays:
+{% if blossom_discovery_nostr_relays is defined %}
+{% for relay in blossom_discovery_nostr_relays %}
+      - {{ relay }}
+{% endfor %}
+{% else %}
+      - wss://relay.example.com
+{% endif %}
+  # find files by asking upstream CDNs
+  # NOTE: do not set this to your own server, it will create an infinite loop
+  upstream:
+    enabled: {{ blossom_discovery_upstream_enabled | default(false) | lower }}
+    domains:
+{% if blossom_discovery_upstream_domains is defined %}
+{% for domain in blossom_discovery_upstream_domains %}
+      - {{ domain }}
+{% endfor %}
+{% else %}
+      - https://cdn.example.com
+{% endif %}
+
+storage:
+  # local or s3
+  backend: {{ blossom_storage_backend | default('local') }}
+
+  # Imminently removes a blob when there are no owners
+  removeWhenNoOwners: {{ blossom_storage_remove_when_no_owners | default(false) | lower }}
+
+  # local storage
+  local:
+    dir: {{ blossom_storage_local_dir | default('./data/blobs') }}
+
+{% if blossom_storage_s3 is defined %}
+  # see minio docs for options:
+  # https://min.io/docs/minio/linux/developers/javascript/API.html#new-minio-client-endpoint-port-usessl-accesskey-secretkey-region-transport-sessiontoken-partsize
+  s3:
+    endpoint: {{ blossom_storage_s3.endpoint }}
+    port: {{ blossom_storage_s3.port | default(443) }}
+    bucket: {{ blossom_storage_s3.bucket }}
+    accessKey: {{ blossom_storage_s3.accessKey }}
+    secretKey: {{ blossom_storage_s3.secretKey }}
+    useSSL: {{ blossom_storage_s3.useSSL | default(true) | lower }}
+{% if blossom_storage_s3.region is defined %}
+    region: {{ blossom_storage_s3.region }}
+{% endif %}
+{% if blossom_storage_s3.publicURL is defined %}
+    # If this is set the server will redirect clients when loading blobs
+    publicURL: {{ blossom_storage_s3.publicURL }}
+{% endif %}
+{% endif %}
+
+  # rules are checked in descending order. if a blob matches a rule it is kept
+  # "type" (required) the type of the blob, "*" can be used to match any type
+  # "expiration" (required) time passed since last accessed
+  # "pubkeys" (optional) a list of owners
+  # any blobs not matching the rules will be removed
+  rules:
+{% if blossom_storage_rules is defined %}
+{% for rule in blossom_storage_rules %}
+    - type: "{{ rule.type }}"
+      expiration: {{ rule.expiration }}
+{% if rule.pubkeys is defined %}
+      pubkeys:
+{% for pubkey in rule.pubkeys %}
+        - {{ pubkey }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% else %}
+    # mime type of blob
+    - type: text/*
+      # time since last accessed
+      expiration: 1 month
+    - type: "image/*"
+      expiration: 1 week
+    - type: "video/*"
+      expiration: 5 days
+    - type: "model/*"
+      expiration: 1 week
+    - type: "*"
+      expiration: 2 days
+{% endif %}
+
+# Config for the /upload endpoint
+upload:
+  # enable / disable uploads (default false)
+  enabled: {{ blossom_upload_enabled | default(true) | lower }}
+  # require auth to upload
+  requireAuth: {{ blossom_upload_require_auth | default(true) | lower }}
+  # only check rules that include "pubkeys"
+  requirePubkeyInRule: {{ blossom_upload_require_pubkey_in_rule | default(false) | lower }}
+
+# Config for the /media endpoint
+media:
+  # /media endpoint enabled (default false)
+  enabled: {{ blossom_media_enabled | default(true) | lower }}
+  # require auth to upload to /media
+  requireAuth: {{ blossom_media_require_auth | default(true) | lower }}
+  # only check rules that include "pubkeys"
+  requirePubkeyInRule: {{ blossom_media_require_pubkey_in_rule | default(false) | lower }}
+
+  # image optimization options
+  image:
+    # image quality 0-100 (default 90)
+    quality: {{ blossom_media_image_quality | default(90) }}
+    # create progressive jpeg / png images for large images > 1024x768 (default true)
+    progressive: {{ blossom_media_image_progressive | default(true) | lower }}
+    # max width (default 1920)
+    maxWidth: {{ blossom_media_image_max_width | default(1920) }}
+    # max height (default 1080)
+    maxHeight: {{ blossom_media_image_max_height | default(1080) }}
+    # image format (default webp)
+    outputFormat: "{{ blossom_media_image_output_format | default('webp') }}"
+    # keep aspect radio when resizing (default true)
+    maintainAspectRatio: {{ blossom_media_image_maintain_aspect_ratio | default(true) | lower }}
+    # keep EXIF metadata (default false)
+    keepExif: {{ blossom_media_image_keep_exif | default(false) | lower }}
+    # fps for GIFs (default 30)
+    fps: {{ blossom_media_image_fps | default(30) }}
+
+  video:
+    # video quality 0-100 (default 90)
+    quality: {{ blossom_media_video_quality | default(90) }}
+    # max height (default 1080)
+    maxHeight: {{ blossom_media_video_max_height | default(1080) }}
+    # max fps (default 30)
+    maxFps: {{ blossom_media_video_max_fps | default(30) }}
+    # output format [mp4, webm, mkv] (default mp4)
+    format: "{{ blossom_media_video_format | default('webm') }}"
+    # audio codec [aac, mp3, vorbis, opus] (default aac)
+    audioCodec: "{{ blossom_media_video_audio_codec | default('aac') }}"
+    # video codec [libx264, libx265, vp8, vp9] (default libx264)
+    videoCodec: "{{ blossom_media_video_video_codec | default('libx264') }}"
+
+list:
+  requireAuth: {{ blossom_list_require_auth | default(false) | lower }}
+  allowListOthers: {{ blossom_list_allow_list_others | default(true) | lower }}
+
+tor:
+  enabled: {{ blossom_tor_enabled | default(false) | lower }}
+  proxy: "{{ blossom_tor_proxy | default('') }}"

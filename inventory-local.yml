@@ -1,0 +1,37 @@
+---
+all:
+  hosts:
+    edufeed-test:
+      ansible_host: 192.168.56.10
+      ansible_user: vagrant
+      ansible_ssh_private_key_file: .vagrant/machines/edufeed-test/libvirt/private_key
+      # Alternative for VirtualBox:
+      # ansible_ssh_private_key_file: .vagrant/machines/edufeed-test/virtualbox/private_key
+    
+  children:
+    docker_hosts:
+      hosts:
+        edufeed-test:
+      vars:
+        # Docker network for Traefik
+        traefik_network_name: traefik_web
+        
+        # Traefik configuration
+        traefik_acme_email: mail@edufeed.org
+        traefik_dashboard_enabled: true
+        traefik_dashboard_domain: traefik.local.test
+        traefik_log_level: DEBUG
+        # Use Let's Encrypt staging for testing
+        traefik_acme_staging: true
+        
+        # Blossom configuration
+        blossom_domain: blossom.local.test
+        blossom_data_volume: blossom_data
+        blossom_dashboard_password: "test123"  # Set a password for testing
+        blossom_image_name: "ghcr.io/hzrd149/blossom-server:master"
+        
+        # Strfry relay configuration
+        strfry_domain: relay.local.test
+        strfry_relay_name: "Edufeed Relay"
+        strfry_relay_description: "Edufeed Nostr relay"
+        strfry_relay_contact: "mail@edufeed.org"

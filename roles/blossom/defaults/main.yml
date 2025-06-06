@@ -1,0 +1,17 @@
+---
+# Blossom server default variables
+blossom_image_name: "ghcr.io/hzrd149/blossom-server:master"
+blossom_container_name: "blossom"
+blossom_domain: "blossom.example.com"
+blossom_data_volume: "blossom_data"
+blossom_data_dir: "/opt/blossom"
+blossom_config_dir: "{{ blossom_data_dir }}/config"
+blossom_public_dir: "{{ blossom_data_dir }}/public"
+
+# Network
+blossom_port: 3000
+blossom_network_name: "traefik_web"
+
+# Configuration
+blossom_debug_enabled: false
+blossom_config_file: "config.yml"

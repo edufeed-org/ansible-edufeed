@@ -1,0 +1,132 @@
+This is an ansible project I want to use to deploy multiple services.
+
+The inventory file should be a yaml file.
+
+In the following section you will find a description of services I want to deploy using this ansible setup.
+
+I also give you examples on how I currently deploy these services.
+If you think this can be improved, improve.
+
+## Services to deploy
+
+### Traefik
+
+I want to use traefik as my webserver for all the services I want to deploy.
+
+This is my docker-compose file for traefik right now, which works well.
+The dashboard should be available with the subdomain `traefik`.
+
+```yaml
+services:
+
+  traefik:
+    image: "traefik:v3"
+    container_name: "traefik"
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.websecure.address=:443"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      #- "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email=mail@edufeed.org"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - "./letsencrypt:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - traefik_web
+
+networks:
+  traefik_web:
+    external: true
+
+```
+
+### Blossom
+
+I want to deploy a blossom-server, which can be found in this repository: https://github.com/hzrd149/blossom-server
+
+I want to deploy it using docker.
+
+It should be served with traefik.
+
+This is the kind of deployment with docker compose I use right now:
+
+```yaml
+version: "3.7"
+
+volumes:
+  data: {}
+
+services:
+  blossom:
+    image: ghcr.io/hzrd149/blossom-server:master
+    build: .
+    ports:
+      - 3000:3000
+    # enable debug logging
+    # environment:
+    #   Custom config path
+    #   BLOSSOM_CONFIG: "data/config.yml"
+    #   DEBUG: "*"
+    volumes:
+      # mount data volume
+      - data:/app/data
+      # mount config file
+      - ./config.yml:/app/config.yml
+      # mount custom www dir
+      - ./public:/app/public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_web"
+      - "traefik.http.services.blossom.loadbalancer.server.port=3000"
+      - "traefik.http.routers.blossom.rule=Host(`blossom.edufeed.org`)"
+      - "traefik.http.routers.blossom.entrypoints=web,websecure"
+      - "traefik.http.routers.blossom.tls.certresolver=myresolver"
+    networks:
+      - traefik_web
+
+networks:
+  traefik_web:
+    external: true
+```
+
+### Nostr Relay
+
+I want to deploy a Nostr relay based on strfry as well (https://github.com/hoytech/strfry)
+Subdomain of the service should be: `relay`
+
+This is how I deployed it for now.
+
+```yaml
+  relay-rpi:
+    image: dockurr/strfry:latest
+    volumes:
+        - ./relay-rpi/strfry-db:/app/strfry-db
+        - ./relay-rpi/strfry.conf:/etc/strfry.conf
+        - /etc/timezone:/etc/timezone:ro
+        - /etc/localtime:/etc/localtime:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_web"
+      - "traefik.http.services.relay-rpi.loadbalancer.server.port=7777"
+      - "traefik.http.routers.relay-rpi.rule=Host(`relay-rpi.edufeed.org`)"
+      - "traefik.http.routers.relay-rpi.entrypoints=web,websecure"
+      - "traefik.http.routers.relay-rpi.tls.certresolver=myresolver"
+    networks:
+      - traefik_web
+```
+
+## Testing the setup.
+
+Use the local vagrant vm to test the setup.
+Check the logs on the vm for potential errors.
+The services should be reachable by their subdomains.

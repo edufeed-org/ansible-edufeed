@@ -1,0 +1,36 @@
+---
+all:
+  hosts:
+    # Add your hosts here
+    # Example:
+    # production-server:
+    #   ansible_host: 192.168.1.100
+    #   ansible_user: ubuntu
+    #   ansible_ssh_private_key_file: ~/.ssh/id_rsa
+    
+  children:
+    docker_hosts:
+      hosts:
+        # Add hosts that will run Docker services
+        # Example:
+        # production-server:
+      vars:
+        # Docker network for Traefik
+        traefik_network_name: traefik_web
+        
+        # Traefik configuration
+        traefik_acme_email: mail@edufeed.org
+        traefik_dashboard_enabled: true
+        traefik_log_level: DEBUG
+        
+        # Blossom configuration
+        blossom_domain: blossom.edufeed.org
+        blossom_data_volume: blossom_data
+        blossom_git_repo: https://github.com/hzrd149/blossom-server
+        blossom_git_branch: master
+        
+        # Strfry relay configuration
+        strfry_domain: relay-rpi.edufeed.org
+        strfry_data_volume: strfry_data
+        strfry_git_repo: https://github.com/hoytech/strfry
+        strfry_git_branch: master

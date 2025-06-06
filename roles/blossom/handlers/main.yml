@@ -1,0 +1,6 @@
+---
+- name: restart blossom
+  docker_container:
+    name: "{{ blossom_container_name }}"
+    state: started
+    restart: yes

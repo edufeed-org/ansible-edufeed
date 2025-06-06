@@ -1,0 +1,115 @@
+---
+- name: Check if Docker is already installed
+  command: docker --version
+  register: docker_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Install Docker using get.docker.com script
+  shell: |
+    curl -fsSL https://get.docker.com | sh
+  when: docker_check.rc != 0
+  become: yes
+
+- name: Ensure Docker service is started
+  service:
+    name: docker
+    state: started
+    enabled: yes
+  become: yes
+
+- name: Enable Docker BuildKit
+  lineinfile:
+    path: /etc/docker/daemon.json
+    line: '{"features": {"buildkit": true}}'
+    create: yes
+    mode: '0644'
+  become: yes
+  register: docker_config
+
+- name: Restart Docker if config changed
+  service:
+    name: docker
+    state: restarted
+  become: yes
+  when: docker_config.changed
+
+- name: Add ansible user to docker group
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+  become: yes
+
+- name: Reset connection to apply group changes
+  meta: reset_connection
+
+- name: Ensure Docker Python library is installed
+  pip:
+    name: docker
+    state: present
+  become: yes
+
+- name: Create Traefik data directory
+  file:
+    path: "{{ traefik_data_dir }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Create Let's Encrypt directory
+  file:
+    path: "{{ traefik_letsencrypt_dir }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Create Docker network for Traefik
+  docker_network:
+    name: "{{ traefik_network_name }}"
+    state: present
+
+- name: Set Traefik command arguments
+  set_fact:
+    traefik_command_args:
+      - "--log.level={{ traefik_log_level }}"
+      - "--api.insecure={{ traefik_dashboard_enabled | lower }}"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.websecure.address=:443"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email={{ traefik_acme_email }}"
+      - "--certificatesresolvers.myresolver.acme.storage={{ traefik_acme_storage }}"
+
+- name: Add staging server if enabled
+  set_fact:
+    traefik_command_args: "{{ traefik_command_args + ['--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory'] }}"
+  when: traefik_acme_staging | bool
+
+- name: Deploy Traefik container
+  docker_container:
+    name: "{{ traefik_container_name }}"
+    image: "traefik:{{ traefik_version }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ traefik_https_port }}:443"
+      - "{{ traefik_http_port }}:80"
+      - "{{ traefik_dashboard_port }}:8080"
+    volumes:
+      - "{{ traefik_letsencrypt_dir }}:/letsencrypt"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - name: "{{ traefik_network_name }}"
+    command: "{{ traefik_command_args }}"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "{{ traefik_network_name }}"
+      traefik.http.services.traefik-dashboard.loadbalancer.server.port: "8080"
+      traefik.http.routers.traefik-dashboard.rule: "Host(`{{ traefik_dashboard_domain }}`)"
+      traefik.http.routers.traefik-dashboard.entrypoints: "web,websecure"
+      traefik.http.routers.traefik-dashboard.tls.certresolver: "myresolver"
+      traefik.http.routers.traefik-dashboard.service: "api@internal"

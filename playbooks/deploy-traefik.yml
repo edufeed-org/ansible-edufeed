@@ -1,0 +1,7 @@
+---
+- name: Deploy Traefik only
+  hosts: docker_hosts
+  become: yes
+  
+  roles:
+    - traefik

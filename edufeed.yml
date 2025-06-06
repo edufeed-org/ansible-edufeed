@@ -1,0 +1,30 @@
+---
+- name: Deploy Edufeed Infrastructure
+  hosts: docker_hosts
+  become: yes
+  
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+    
+    - name: Deploy Traefik
+      include_role:
+        name: traefik
+      tags:
+        - traefik
+    
+    - name: Deploy Blossom server
+      include_role:
+        name: blossom
+      tags:
+        - blossom
+    
+    - name: Deploy Strfry (Nostr relay)
+      include_role:
+        name: strfry
+      tags:
+        - strfry
+        - nostr

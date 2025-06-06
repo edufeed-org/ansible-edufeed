@@ -1,0 +1,44 @@
+---
+
+- name: Create Strfry data directory
+  file:
+    path: "{{ strfry_data_dir }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Create Strfry database directory
+  file:
+    path: "{{ strfry_db_path }}"
+    state: directory
+    mode: '0755'
+  become: yes
+
+- name: Deploy Strfry config file
+  template:
+    src: strfry.conf.j2
+    dest: "{{ strfry_data_dir }}/{{ strfry_config_file }}"
+    mode: '0644'
+  become: yes
+  notify: restart strfry
+
+- name: Deploy Strfry container
+  docker_container:
+    name: "{{ strfry_container_name }}"
+    image: "{{ strfry_image_name }}"
+    state: started
+    restart_policy: always
+    volumes:
+      - "{{ strfry_db_path }}:/app/strfry-db"
+      - "{{ strfry_data_dir }}/{{ strfry_config_file }}:/etc/strfry.conf"
+      - "/etc/timezone:/etc/timezone:ro"
+      - "/etc/localtime:/etc/localtime:ro"
+    networks:
+      - name: "{{ strfry_network_name }}"
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "{{ strfry_network_name }}"
+      traefik.http.services.relay.loadbalancer.server.port: "{{ strfry_port }}"
+      traefik.http.routers.relay.rule: "Host(`{{ strfry_domain }}`)"
+      traefik.http.routers.relay.entrypoints: "web,websecure"
+      traefik.http.routers.relay.tls.certresolver: "myresolver"

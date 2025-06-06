@@ -1,0 +1,7 @@
+---
+- name: Deploy Blossom server only
+  hosts: docker_hosts
+  become: yes
+  
+  roles:
+    - blossom

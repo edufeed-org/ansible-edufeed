@@ -1,0 +1,6 @@
+---
+- name: restart strfry
+  docker_container:
+    name: "{{ strfry_container_name }}"
+    state: started
+    restart: yes

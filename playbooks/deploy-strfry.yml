@@ -1,0 +1,7 @@
+---
+- name: Deploy Strfry (Nostr relay) only
+  hosts: docker_hosts
+  become: yes
+  
+  roles:
+    - strfry
